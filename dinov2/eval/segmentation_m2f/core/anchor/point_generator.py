@@ -47,7 +47,7 @@ class MlvlPointGenerator:
         else:
             return yy.reshape(-1), xx.reshape(-1)
 
-    def grid_priors(self, featmap_sizes, dtype=torch.float32, device="cuda", with_stride=False):
+    def grid_priors(self, featmap_sizes, dtype=torch.float32, device="npu", with_stride=False):
         """Generate grid points of multiple feature levels.
 
         Args:
@@ -79,7 +79,7 @@ class MlvlPointGenerator:
             multi_level_priors.append(priors)
         return multi_level_priors
 
-    def single_level_grid_priors(self, featmap_size, level_idx, dtype=torch.float32, device="cuda", with_stride=False):
+    def single_level_grid_priors(self, featmap_size, level_idx, dtype=torch.float32, device="npu", with_stride=False):
         """Generate grid Points of a single level.
 
         Note:
@@ -91,7 +91,7 @@ class MlvlPointGenerator:
             level_idx (int): The index of corresponding feature map level.
             dtype (:obj:`dtype`): Dtype of priors. Default: torch.float32.
             device (str, optional): The device the tensor will be put on.
-                Defaults to 'cuda'.
+                Defaults to 'npu'.
             with_stride (bool): Concatenate the stride to the last dimension
                 of points.
 
@@ -127,7 +127,7 @@ class MlvlPointGenerator:
         all_points = shifts.to(device)
         return all_points
 
-    def valid_flags(self, featmap_sizes, pad_shape, device="cuda"):
+    def valid_flags(self, featmap_sizes, pad_shape, device="npu"):
         """Generate valid flags of points of multiple feature levels.
 
         Args:
@@ -153,7 +153,7 @@ class MlvlPointGenerator:
             multi_level_flags.append(flags)
         return multi_level_flags
 
-    def single_level_valid_flags(self, featmap_size, valid_size, device="cuda"):
+    def single_level_valid_flags(self, featmap_size, valid_size, device="npu"):
         """Generate the valid flags of points of a single feature map.
 
         Args:
@@ -162,7 +162,7 @@ class MlvlPointGenerator:
             valid_size (tuple[int]): The valid size of the feature maps.
                 The size arrange as as (h, w).
             device (str, optional): The device where the flags will be put on.
-                Defaults to 'cuda'.
+                Defaults to 'npu'.
 
         Returns:
             torch.Tensor: The valid flags of each points in a single level \
@@ -179,7 +179,7 @@ class MlvlPointGenerator:
         valid = valid_xx & valid_yy
         return valid
 
-    def sparse_priors(self, prior_idxs, featmap_size, level_idx, dtype=torch.float32, device="cuda"):
+    def sparse_priors(self, prior_idxs, featmap_size, level_idx, dtype=torch.float32, device="npu"):
         """Generate sparse points according to the ``prior_idxs``.
 
         Args:

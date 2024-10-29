@@ -172,7 +172,7 @@ class _TorchDistributedEnvironment:
             collected_env_vars = ", ".join(env_vars.keys())
             raise RuntimeError(f"Partially set environment: {collected_env_vars}")
 
-        if torch.cuda.device_count() > 0:
+        if torch.npu.device_count() > 0:
             return self._set_from_local()
 
         raise RuntimeError("Can't initialize PyTorch distributed environment")
@@ -236,12 +236,12 @@ class _TorchDistributedEnvironment:
         return self
 
 
-def enable(*, set_cuda_current_device: bool = True, overwrite: bool = False, allow_nccl_timeout: bool = False):
+def enable(*, set_npu_current_device: bool = True, overwrite: bool = False, allow_nccl_timeout: bool = False):
     """Enable distributed mode
 
     Args:
-        set_cuda_current_device: If True, call torch.cuda.set_device() to set the
-            current PyTorch CUDA device to the one matching the local rank.
+        set_npu_current_device: If True, call torch.npu.set_device() to set the
+            current PyTorch npu device to the one matching the local rank.
         overwrite: If True, overwrites already set variables. Else fails.
     """
 
@@ -251,8 +251,8 @@ def enable(*, set_cuda_current_device: bool = True, overwrite: bool = False, all
     torch_env = _TorchDistributedEnvironment()
     torch_env.export(overwrite=overwrite)
 
-    if set_cuda_current_device:
-        torch.cuda.set_device(torch_env.local_rank)
+    if set_npu_current_device:
+        torch.npu.set_device(torch_env.local_rank)
 
     if allow_nccl_timeout:
         # This allows to use torch distributed timeout in a NCCL backend
@@ -261,7 +261,7 @@ def enable(*, set_cuda_current_device: bool = True, overwrite: bool = False, all
             _check_env_variable(key, value)
         os.environ[key] = value
 
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="hccl")
     dist.barrier()
 
     # Finalize setup

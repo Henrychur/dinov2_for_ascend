@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.autograd import Function
-from torch.cuda.amp import custom_fwd
+from torch.npu.amp import custom_fwd
 from torch.nn.init import constant_, xavier_uniform_
 
 
@@ -32,7 +32,7 @@ class MSDeformAttnFunction(Function):
 
 def ms_deform_attn_core_pytorch(value, value_spatial_shapes, sampling_locations, attention_weights):
     # for debug and test only,
-    # need to use cuda version instead
+    # need to use npu version instead
     N_, S_, M_, D_ = value.shape
     _, Lq_, M_, L_, P_, _ = sampling_locations.shape
     value_list = value.split([H_ * W_ for H_, W_ in value_spatial_shapes], dim=1)
@@ -74,12 +74,12 @@ class MSDeformAttn(nn.Module):
             raise ValueError("d_model must be divisible by n_heads, " "but got {} and {}".format(d_model, n_heads))
         _d_per_head = d_model // n_heads
         # you'd better set _d_per_head to a power of 2
-        # which is more efficient in our CUDA implementation
+        # which is more efficient in our npu implementation
         if not _is_power_of_2(_d_per_head):
             warnings.warn(
                 "You'd better set d_model in MSDeformAttn to make "
                 "the dimension of each attention head a power of 2 "
-                "which is more efficient in our CUDA implementation."
+                "which is more efficient in our npu implementation."
             )
 
         self.im2col_step = 64

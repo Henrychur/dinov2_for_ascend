@@ -275,7 +275,7 @@ def eval_knn(
     num_classes = train_labels.max() + 1
     metric_collection = build_topk_accuracy_metric(accuracy_averaging, num_classes=num_classes)
 
-    device = torch.cuda.current_device()
+    device = torch.npu.current_device()
     partial_module = partial(KnnModule, T=temperature, device=device, num_classes=num_classes)
     knn_module_dict = create_module_dict(
         module=partial_module,
@@ -342,7 +342,7 @@ def eval_knn_with_model(
         transform=transform,
     )
 
-    with torch.cuda.amp.autocast(dtype=autocast_dtype):
+    with torch.npu.amp.autocast(dtype=autocast_dtype):
         results_dict_knn = eval_knn(
             model=model,
             train_dataset=train_dataset,

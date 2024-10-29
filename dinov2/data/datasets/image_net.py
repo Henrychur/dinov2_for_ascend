@@ -174,9 +174,8 @@ class ImageNet(ExtendedVisionDataset):
 
         try:
             with open(labels_full_path, "r") as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    class_id, class_name = row
+                for line in f:
+                    class_id, class_name = line.split(':')[0].strip(), line.split(':')[1].strip()
                     labels.append((class_id, class_name))
         except OSError as e:
             raise RuntimeError(f'can not read labels file "{labels_full_path}"') from e

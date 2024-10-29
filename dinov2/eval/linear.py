@@ -243,7 +243,7 @@ def setup_linear_classifiers(sample_output, n_last_blocks_list, learning_rates, 
                 linear_classifier = LinearClassifier(
                     out_dim, use_n_blocks=n, use_avgpool=avgpool, num_classes=num_classes
                 )
-                linear_classifier = linear_classifier.cuda()
+                linear_classifier = linear_classifier.npu()
                 linear_classifiers_dict[
                     f"classifier_{n}_blocks_avgpool_{avgpool}_lr_{lr:.5f}".replace(".", "_")
                 ] = linear_classifier
@@ -281,7 +281,7 @@ def evaluate_linear_classifiers(
         data_loader,
         postprocessors,
         metrics,
-        torch.cuda.current_device(),
+        torch.npu.current_device(),
     )
 
     logger.info("")
@@ -346,8 +346,8 @@ def eval_linear(
         max_iter,
         start_iter,
     ):
-        data = data.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
+        data = data.npu(non_blocking=True)
+        labels = labels.npu(non_blocking=True)
 
         features = feature_model(data)
         outputs = linear_classifiers(features)
@@ -365,18 +365,18 @@ def eval_linear(
 
         # log
         if iteration % 10 == 0:
-            torch.cuda.synchronize()
+            torch.npu.synchronize()
             metric_logger.update(loss=loss.item())
             metric_logger.update(lr=optimizer.param_groups[0]["lr"])
             print("lr", optimizer.param_groups[0]["lr"])
 
         if iteration - start_iter > 5:
             if iteration % running_checkpoint_period == 0:
-                torch.cuda.synchronize()
+                torch.npu.synchronize()
                 if distributed.is_main_process():
                     logger.info("Checkpointing running_checkpoint")
                     periodic_checkpointer.save("running_checkpoint_linear_eval", iteration=iteration)
-                torch.cuda.synchronize()
+                torch.npu.synchronize()
         periodic_checkpointer.step(iteration)
 
         if eval_period > 0 and (iteration + 1) % eval_period == 0 and iteration != max_iter - 1:
@@ -391,7 +391,7 @@ def eval_linear(
                 iteration=iteration,
                 class_mapping=val_class_mapping,
             )
-            torch.cuda.synchronize()
+            torch.npu.synchronize()
 
         iteration = iteration + 1
 
@@ -502,9 +502,9 @@ def run_eval_linear(
 
     n_last_blocks_list = [1, 4]
     n_last_blocks = max(n_last_blocks_list)
-    autocast_ctx = partial(torch.cuda.amp.autocast, enabled=True, dtype=autocast_dtype)
+    autocast_ctx = partial(torch.npu.amp.autocast, enabled=True, dtype=autocast_dtype)
     feature_model = ModelWithIntermediateLayers(model, n_last_blocks, autocast_ctx)
-    sample_output = feature_model(train_dataset[0][0].unsqueeze(0).cuda())
+    sample_output = feature_model(train_dataset[0][0].unsqueeze(0).npu())
 
     linear_classifiers, optim_param_groups = setup_linear_classifiers(
         sample_output,

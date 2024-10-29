@@ -21,9 +21,10 @@ from dinov2.utils.config import setup
 from dinov2.utils.utils import CosineScheduler
 
 from dinov2.train.ssl_meta_arch import SSLMetaArch
+import torch
+import torch_npu
 
-
-torch.backends.cuda.matmul.allow_tf32 = True  # PyTorch 1.12 sets this to False by default
+# torch.backends.npu.matmul.allow_tf32 = True  # PyTorch 1.12 sets this to False by default
 logger = logging.getLogger("dinov2")
 
 
@@ -54,6 +55,7 @@ For python-based LazyConfig, use "path.key=value".
         type=str,
         help="Output directory to save logs and checkpoints",
     )
+    parser.add_argument("--local-rank", default=0, type=int, help="Variable for distributed computing.") 
 
     return parser
 
@@ -286,7 +288,7 @@ def do_train(cfg, model, resume=False):
 
         if cfg.evaluation.eval_period_iterations > 0 and (iteration + 1) % cfg.evaluation.eval_period_iterations == 0:
             do_test(cfg, model, f"training_{iteration}")
-            torch.cuda.synchronize()
+            torch.npu.synchronize()
         periodic_checkpointer.step(iteration)
 
         iteration = iteration + 1
@@ -297,7 +299,7 @@ def do_train(cfg, model, resume=False):
 def main(args):
     cfg = setup(args)
 
-    model = SSLMetaArch(cfg).to(torch.device("cuda"))
+    model = SSLMetaArch(cfg).to(torch.device("npu"))
     model.prepare_for_distributed_training()
 
     logger.info("Model:\n{}".format(model))

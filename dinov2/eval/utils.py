@@ -111,13 +111,13 @@ def extract_features(model, dataset, batch_size, num_workers, gather_on_cpu=Fals
 
 @torch.inference_mode()
 def extract_features_with_dataloader(model, data_loader, sample_count, gather_on_cpu=False):
-    gather_device = torch.device("cpu") if gather_on_cpu else torch.device("cuda")
+    gather_device = torch.device("cpu") if gather_on_cpu else torch.device("npu")
     metric_logger = MetricLogger(delimiter="  ")
     features, all_labels = None, None
     for samples, (index, labels_rank) in metric_logger.log_every(data_loader, 10):
-        samples = samples.cuda(non_blocking=True)
-        labels_rank = labels_rank.cuda(non_blocking=True)
-        index = index.cuda(non_blocking=True)
+        samples = samples.npu(non_blocking=True)
+        labels_rank = labels_rank.npu(non_blocking=True)
+        index = index.npu(non_blocking=True)
         features_rank = model(samples).float()
 
         # init storage feature matrix

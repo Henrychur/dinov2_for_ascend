@@ -64,9 +64,37 @@ def is_sharded_fsdp(x):
 
 def free_if_fsdp(x):
     if is_sharded_fsdp(x):
-        handles = x._handles
-        true_list = [True for h in handles]
-        _reshard(x, handles, true_list)
+        handle = x._handle
+        # true_list = [True for h in handles]
+        _reshard(x, handle, True)
+
+# def purge_fsdp(model: FSDP):
+#     """Purge the FSDP cached shard inside the model. This should
+#     allow setting the best state or switching to the EMA.
+#     """
+#     from torch.distributed.fsdp._runtime_utils import _reshard  # type: ignore
+#     for module in FSDP.fsdp_modules(model):
+#         if hasattr(module, "_handles"):
+#             # support for FSDP with torch<2.1.0
+#             handles = module._handles
+#             if not handles:
+#                 continue
+#             handle = handles[0]
+#             unsharded_flat_param = handle._get_padded_unsharded_flat_param()
+#             storage_size: int = unsharded_flat_param._typed_storage()._size()  # type: ignore
+#             if storage_size == 0:
+#                 continue
+#             true_list = [True for h in handles]
+#             _reshard(module, handles, true_list)
+#         else:
+#             handle = module._handle
+#             if not handle:
+#                 continue
+#             unsharded_flat_param = handle._get_padded_unsharded_flat_param()
+#             storage_size: int = unsharded_flat_param._typed_storage()._size()  # type: ignore
+#             if storage_size == 0:
+#                 continue
+#             _reshard(module, handle, True)
 
 
 def get_fsdp_modules(x):

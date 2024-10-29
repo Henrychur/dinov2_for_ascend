@@ -14,21 +14,21 @@ import logging
 logger = logging.getLogger("dinov2")
 
 
-try:
-    from xformers.ops import cross_entropy
+# try:
+#     from xformers.ops import cross_entropy
 
-    def lossfunc(t, s, temp):
-        s = s.float()
-        t = t.float()
-        if s.ndim == 2:
-            return -cross_entropy(s.unsqueeze(0), t.unsqueeze(0), temp, bw_inplace=True).squeeze(0)
-        elif s.ndim == 3:
-            return -cross_entropy(s, t, temp, bw_inplace=True)
+#     def lossfunc(t, s, temp):
+#         s = s.float()
+#         t = t.float()
+#         if s.ndim == 2:
+#             return -cross_entropy(s.unsqueeze(0), t.unsqueeze(0), temp, bw_inplace=True).squeeze(0)
+#         elif s.ndim == 3:
+#             return -cross_entropy(s, t, temp, bw_inplace=True)
 
-except ImportError:
+# except ImportError:
 
-    def lossfunc(t, s, temp):
-        return torch.sum(t * F.log_softmax(s / temp, dim=-1), dim=-1)
+def lossfunc(t, s, temp):
+    return torch.sum(t * F.log_softmax(s / temp, dim=-1), dim=-1)
 
 
 class iBOTPatchLoss(nn.Module):

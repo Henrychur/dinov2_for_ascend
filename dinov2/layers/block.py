@@ -24,20 +24,20 @@ from .mlp import Mlp
 logger = logging.getLogger("dinov2")
 
 
-XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
-try:
-    if XFORMERS_ENABLED:
-        from xformers.ops import fmha, scaled_index_add, index_select_cat
+# XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
+# try:
+#     if XFORMERS_ENABLED:
+#         from xformers.ops import fmha, scaled_index_add, index_select_cat
 
-        XFORMERS_AVAILABLE = True
-        warnings.warn("xFormers is available (Block)")
-    else:
-        warnings.warn("xFormers is disabled (Block)")
-        raise ImportError
-except ImportError:
-    XFORMERS_AVAILABLE = False
+#         XFORMERS_AVAILABLE = True
+#         warnings.warn("xFormers is available (Block)")
+#     else:
+#         warnings.warn("xFormers is disabled (Block)")
+#         raise ImportError
+# except ImportError:
+#     XFORMERS_AVAILABLE = False
 
-    warnings.warn("xFormers is not available (Block)")
+#     warnings.warn("xFormers is not available (Block)")
 
 
 class Block(nn.Module):
@@ -85,8 +85,17 @@ class Block(nn.Module):
         self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.sample_drop_ratio = drop_path
+        
+    def forward(self, x_or_x_list):
+        if isinstance(x_or_x_list, Tensor):
+            return self.forward_once(x_or_x_list)
+        elif isinstance(x_or_x_list, list):
+            list_output = []
+            for x in x_or_x_list:
+                list_output.append(self.forward_once(x))
+            return list_output
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward_once(self, x: Tensor) -> Tensor:
         def attn_residual_func(x: Tensor) -> Tensor:
             return self.ls1(self.attn(self.norm1(x)))
 

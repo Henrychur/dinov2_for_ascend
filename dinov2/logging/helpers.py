@@ -85,7 +85,7 @@ class MetricLogger(object):
             "time: {time}",
             "data: {data}",
         ]
-        if torch.cuda.is_available():
+        if torch.npu.is_available():
             log_list += ["max mem: {memory:.0f}"]
 
         log_msg = self.delimiter.join(log_list)
@@ -98,7 +98,7 @@ class MetricLogger(object):
                 self.dump_in_output_file(iteration=i, iter_time=iter_time.avg, data_time=data_time.avg)
                 eta_seconds = iter_time.global_avg * (n_iterations - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-                if torch.cuda.is_available():
+                if torch.npu.is_available():
                     logger.info(
                         log_msg.format(
                             i,
@@ -107,7 +107,7 @@ class MetricLogger(object):
                             meters=str(self),
                             time=str(iter_time),
                             data=str(data_time),
-                            memory=torch.cuda.max_memory_allocated() / MB,
+                            memory=torch.npu.max_memory_allocated() / MB,
                         )
                     )
                 else:
@@ -155,7 +155,7 @@ class SmoothedValue:
         """
         if not distributed.is_enabled():
             return
-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
+        t = torch.tensor([self.count, self.total], dtype=torch.float64, device="npu")
         torch.distributed.barrier()
         torch.distributed.all_reduce(t)
         t = t.tolist()

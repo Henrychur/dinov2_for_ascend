@@ -81,7 +81,7 @@ def get_args_parser(
     parser.add_argument(
         "--train-features-device",
         type=str,
-        help="Device to gather train features (cpu, cuda, cuda:0, etc.), default: %(default)s",
+        help="Device to gather train features (cpu, npu, npu:0, etc.), default: %(default)s",
     )
     parser.add_argument(
         "--train-dtype",
@@ -236,7 +236,7 @@ def sweep_C_values(
             logreg_model=logreg_models_gathered[C],
             logreg_metric=metric_tracker,
             test_data_loader=test_data_loader,
-            device=torch.cuda.current_device(),
+            device=torch.npu.current_device(),
         )
         logger.info(f"Trained for C = {C:.5f}, accuracies = {evals}")
 
@@ -307,7 +307,7 @@ def eval_log_regression(
     # release the model - free GPU memory
     del model
     gc.collect()
-    torch.cuda.empty_cache()
+    torch.npu.empty_cache()
     finetune_data_loader = torch.utils.data.DataLoader(
         TensorDataset(finetune_features, finetune_labels),
         batch_size=batch_size,
@@ -346,7 +346,7 @@ def eval_log_regression(
         train_labels=train_labels,
         logreg_metric=logreg_metric.clone(),
         test_data_loader=val_data_loader,
-        eval_device=torch.cuda.current_device(),
+        eval_device=torch.npu.current_device(),
         train_dtype=train_dtype,
         train_features_device=train_features_device,
     )
@@ -385,7 +385,7 @@ def eval_log_regression_with_model(
     else:
         finetune_dataset = None
 
-    with torch.cuda.amp.autocast(dtype=autocast_dtype):
+    with torch.npu.amp.autocast(dtype=autocast_dtype):
         results_dict_logreg = eval_log_regression(
             model=model,
             train_dataset=train_dataset,

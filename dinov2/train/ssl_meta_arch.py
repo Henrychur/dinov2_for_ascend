@@ -8,7 +8,7 @@ import logging
 
 import torch
 from torch import nn
-
+import torch.nn.functional as F
 from dinov2.loss import DINOLoss, iBOTPatchLoss, KoLeoLoss
 from dinov2.models import build_model_from_cfg
 from dinov2.layers import DINOHead
@@ -19,10 +19,35 @@ from dinov2.fsdp import get_fsdp_wrapper, ShardedGradScaler, get_fsdp_modules, r
 from dinov2.models.vision_transformer import BlockChunk
 
 
-try:
-    from xformers.ops import fmha
-except ImportError:
-    raise AssertionError("xFormers is required for training")
+# try:
+#     from xformers.ops import fmha
+# except ImportError:
+#     raise AssertionError("xFormers is required for training")
+
+class BlockDiagonalMask:
+    def __init__(self, mask):
+        self.mask = mask
+        self._batch_sizes = None  # 将记录每个批次的序列长度总和
+
+    @classmethod
+    def from_seqlens(cls, seqlens):
+        total_length = sum(seqlens)
+        mask = torch.zeros(total_length, total_length)
+        current_index = 0
+        for length in seqlens:
+            mask[current_index:current_index+length, current_index:current_index+length] = 1
+            current_index += length
+        return cls(mask)
+
+    @staticmethod
+    def from_tensor_list(tensors):
+        batch_sizes = [tensor.shape[0] for tensor in tensors]
+        seqlens = [tensor.shape[1] * tensor.shape[0] for tensor in tensors]  # 计算每个批次的序列长度总和
+        block_diag = BlockDiagonalMask.from_seqlens(seqlens)
+        block_diag._batch_sizes = seqlens  # 保存每个批次的序列长度总和
+        tensors_bs1 = tuple(x.reshape(1, -1, *x.shape[2:]) for x in tensors)
+        concat_tensors = torch.cat(tensors_bs1, dim=1)
+        return block_diag, concat_tensors
 
 
 logger = logging.getLogger("dinov2")
@@ -134,15 +159,15 @@ class SSLMetaArch(nn.Module):
         assert n_global_crops == 2
         n_local_crops = self.cfg.crops.local_crops_number
 
-        global_crops = images["collated_global_crops"].cuda(non_blocking=True)
-        local_crops = images["collated_local_crops"].cuda(non_blocking=True)
+        global_crops = images["collated_global_crops"].npu(non_blocking=True)
+        local_crops = images["collated_local_crops"].npu(non_blocking=True)
 
-        masks = images["collated_masks"].cuda(non_blocking=True)
-        mask_indices_list = images["mask_indices_list"].cuda(non_blocking=True)
-        n_masked_patches_tensor = images["n_masked_patches"].cuda(non_blocking=True)
+        masks = images["collated_masks"].npu(non_blocking=True)
+        mask_indices_list = images["mask_indices_list"].npu(non_blocking=True)
+        n_masked_patches_tensor = images["n_masked_patches"].npu(non_blocking=True)
         n_masked_patches = mask_indices_list.shape[0]
         upperbound = images["upperbound"]
-        masks_weight = images["masks_weight"].cuda(non_blocking=True)
+        masks_weight = images["masks_weight"].npu(non_blocking=True)
 
         n_local_crops_loss_terms = max(n_local_crops * n_global_crops, 1)
         n_global_crops_loss_terms = (n_global_crops - 1) * n_global_crops
@@ -262,9 +287,18 @@ class SSLMetaArch(nn.Module):
                 ]
 
         # 2: run
-        _attn_bias, cat_inputs = fmha.BlockDiagonalMask.from_tensor_list(inputs_for_student_head_list)
-        outputs_list = _attn_bias.split(self.student.dino_head(cat_inputs))
-
+        # _attn_bias, cat_inputs = fmha.BlockDiagonalMask.from_tensor_list(inputs_for_student_head_list)
+        # outputs_list = _attn_bias.split(self.student.dino_head(cat_inputs))
+        
+        # block_diag, cat_inputs = BlockDiagonalMask.from_tensor_list(inputs_for_student_head_list)
+        # outputs = self.student.dino_head(cat_inputs)
+        # outputs_list = outputs.split(block_diag._batch_sizes)
+        
+        outputs_list = []
+        for inputs in inputs_for_student_head_list:
+            output = self.student.dino_head(inputs)
+            outputs_list.append(output)
+        
         # 3a: local crops cls tokens
         student_local_cls_tokens_after_head = outputs_list.pop(0).squeeze(0)
 
@@ -347,10 +381,15 @@ class SSLMetaArch(nn.Module):
 
     def fsdp_synchronize_streams(self):
         if self.need_to_synchronize_fsdp_streams:
-            torch.cuda.synchronize()
-            self.student.dino_head._streams = (
-                self.teacher.dino_head._streams
-            ) = self.student.backbone._streams = self.teacher.backbone._streams
+            torch.npu.synchronize()
+            # self.student.dino_head._streams = (
+            #     self.teacher.dino_head._streams
+            # ) = self.student.backbone._streams = self.teacher.backbone._streams
+            for attr in {"_unshard_stream", "_post_backward_stream", "_pre_unshard_stream", "_all_reduce_stream", "_default_stream"}:
+                stream = getattr(self.teacher.backbone, attr)
+                setattr(self.student.dino_head, attr, stream)
+                setattr(self.teacher.dino_head, attr, stream)
+                setattr(self.student.backbone, attr, stream)
             self.need_to_synchronize_fsdp_streams = False
 
     def update_teacher(self, m):
