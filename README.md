@@ -1,3 +1,39 @@
+# What's this repo for?
+This repository is forked from the official Dinov2 repository, and add support for the Ascend910B(Huawei's NPU). We have test the code on the platform with Kunpeng 920 CPU and 8xAscend910B NPU.
+
+The implementation of DinoV2 is entirely based on Xformers, which was developed by MetaAI specifically as a toolkit optimized for NVIDIA GPU with Transformers-like architectures. Therefore, to run DinoV2 on Huawei's Ascend platform, it is necessary to replace the Xformers dependency with native Pytorch. It should be noted that our version of the code may not fully exploit the optimal performance of the Ascend910B. Given that Xformers is specifically optimized for CUDA with many computational operations, rewriting in native Pytorch could lead to **reduced efficiency**.
+
+## Installation
+1. Install Ascend Extension for Pytorch
+The details are on https://gitee.com/ascend/pytorch
+For example, with aarch64 CPU
+```bash
+# install pytorch
+pip3 install torch==2.1.0
+# install dependencies for pytorch_npu
+pip3 install pyyaml 
+pip3 install setuptools
+# install torch_npu
+pip3 install torch-npu==2.1.0.post3
+```
+Before running the code, you should also use the following commands to initialise the CANN environment variables
+
+Please note that we are using version 2.1.0 of PyTorch. We have modified the FSDP code in DinoV2 to support PyTorch 2.1.0, as opposed to the earlier version 2.0.0.
+
+```bash
+# Default path, change it if needed.
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+```
+2. Install Dinov2 dependencies. Different from the installation guideline from offical, we need to make a little difference because Ascend910B NPU DO NOT support xformers and other cuda dependency.
+```py
+pip install omegaconf torchmetrics==0.10.3 fvcore iopath submitit
+```
+
+3. Data preparation similar to official Dinov2
+
+4. Run the training code using `train_bash.sh`. We have modified the code to support execution without Slurm.
+---
+
 :new: [2023-10-26] *Added DINOv2 backbones with registers, following [Vision Transformers Need Registers](https://arxiv.org/abs/2309.16588).*
 
 # DINOv2: Learning Robust Visual Features without Supervision
